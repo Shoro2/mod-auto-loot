@@ -70,9 +70,9 @@ enum AutoLootString
 class AutoLoot_Player : public PlayerScript
 {
 public:
-    AutoLoot_Player() : PlayerScript("AutoLoot_Player") { }
+    AutoLoot_Player() : PlayerScript("AutoLoot_Player", {PLAYERHOOK_ON_LOGIN, PLAYERHOOK_CAN_SEND_ERROR_ALREADY_LOOTED, PLAYERHOOK_ON_UPDATE}) { }
 
-    void OnLogin(Player* player) override
+    void OnPlayerLogin(Player* player) override
     {
         if (sConfigMgr->GetOption<bool>("AOELoot.Enable", true))
         {
@@ -80,12 +80,12 @@ public:
         }
     }
 
-    bool CanSendErrorAlreadyLooted(Player* /*player*/) override
+    bool OnPlayerCanSendErrorAlreadyLooted(Player* /*player*/) override
     {
         return true;
     }
 
-    void OnUpdate(Player* player, uint32 /*p_time*/) override
+    void OnPlayerUpdate(Player* player, uint32 /*p_time*/) override
     {
         bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
 
@@ -143,7 +143,7 @@ public:
                     if (!_creature->IsAlive())
                     {
                         _creature->AllLootRemovedFromCorpse();
-                        _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                        _creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
                         loot->clear();
 
                         if (_creature->HasUnitFlag(UNIT_FLAG_SKINNABLE))
@@ -154,7 +154,7 @@ public:
                 }
                 else
                 {
-                    _creature->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                    _creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
                     _creature->AllLootRemovedFromCorpse();
                 }
             }
@@ -202,57 +202,6 @@ public:
 
 
     }
-
-    void OnGObjLoot(Player* player)
-    {
-        /*
-        ObjectGuid lguid = player->GetLootGUID();
-        if (lguid.IsGameObject()) {
-            bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
-
-            if (player->GetGroup() || !_enable)
-                return;
-
-            GameObject* go = player->GetMap()->GetGameObject(lguid);
-            Loot* loot = &go->loot;
-
-            uint8 lootSlot = 0;
-            uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
-
-            for (uint32 i = 0; i < maxSlot; ++i)
-            {
-                if (LootItem* item = loot->LootItemInSlot(i, player))
-                {
-                    ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->itemid);
-
-                    if (player->AddItem(item->itemid, item->count))
-                    {
-                        player->SendNotifyLootItemRemoved(lootSlot);
-                        player->SendLootRelease(player->GetLootGUID());
-                    }
-                    else if (sConfigMgr->GetOption<bool>("AOELoot.MailEnable", true))
-                    {
-                        player->SendItemRetrievalMail(item->itemid, item->count);
-                        ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
-                    }
-
-
-                }
-            }
-            go->SetLootState(GO_NOT_READY);
-        }
-
-
-
-        */
-
-    }
-
-    void OnAfterGObjLoot(Player* player) override
-    {
-        OnGObjLoot(player);
-    }
-
 
 };
 

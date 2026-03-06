@@ -61,16 +61,16 @@
 #include "Player.h"
 #include "ScriptedGossip.h"
 
-enum AoeLootString
+enum AutoLootString
 {
     AOE_ACORE_STRING_MESSAGE = 50000,
     AOE_ITEM_IN_THE_MAIL = 50001
 };
 
-class AoeLoot_Player : public PlayerScript
+class AutoLoot_Player : public PlayerScript
 {
 public:
-    AoeLoot_Player() : PlayerScript("AoeLoot_Player") { }
+    AutoLoot_Player() : PlayerScript("AutoLoot_Player") { }
 
     void OnLogin(Player* player) override
     {
@@ -256,7 +256,7 @@ public:
 
 };
 
-void AddSC_AoeLoot()
+void AddSC_AutoLoot()
 {
-    new AoeLoot_Player();
+    new AutoLoot_Player();
 }

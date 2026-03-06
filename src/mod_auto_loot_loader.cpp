@@ -16,10 +16,10 @@
  */
 
 // From SC
-void AddSC_AoeLoot();
+void AddSC_AutoLoot();
 
 // Add all
-void Addmod_aoe_lootScripts()
+void Addmod_auto_lootScripts()
 {
-    AddSC_AoeLoot();
+    AddSC_AutoLoot();
 }

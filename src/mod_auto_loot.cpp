@@ -60,12 +60,30 @@
 #include "Chat.h"
 #include "Player.h"
 #include "ScriptedGossip.h"
+#include "Item.h"
 
 enum AutoLootString
 {
     AOE_ACORE_STRING_MESSAGE = 50000,
     AOE_ITEM_IN_THE_MAIL = 50001
 };
+
+// Store item and fire OnPlayerLootItem so other modules (e.g. paragon-itemgen)
+// can process the item.  Returns the created Item* or nullptr on failure.
+static Item* StoreLootAndNotify(Player* player, uint32 itemId, uint32 count, ObjectGuid lootSource)
+{
+    ItemPosCountVec dest;
+    if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemId, count) != EQUIP_ERR_OK)
+        return nullptr;
+
+    Item* newItem = player->StoreNewItem(dest, itemId, true);
+    if (!newItem)
+        return nullptr;
+
+    player->SendNewItem(newItem, count, true, false);
+    sScriptMgr->OnPlayerLootItem(player, newItem, count, lootSource);
+    return newItem;
+}
 
 class AutoLoot_Player : public PlayerScript
 {
@@ -107,6 +125,7 @@ public:
                 uint8 lootSlot = 0;
                 uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
 
+                ObjectGuid creatureGuid = _creature->GetGUID();
                 for (uint32 i = 0; i < maxSlot; ++i)
                 {
                     if (LootItem* item = loot->LootItemInSlot(i, player))
@@ -115,7 +134,7 @@ public:
 
                         if (itemTemplate->MaxCount != 1)
                         {
-                            if (player->AddItem(item->itemid, item->count))
+                            if (StoreLootAndNotify(player, item->itemid, item->count, creatureGuid))
                             {
                                 player->SendNotifyLootItemRemoved(lootSlot);
                                 player->SendLootRelease(player->GetLootGUID());
@@ -130,7 +149,7 @@ public:
                         {
                             if (!player->HasItemCount(item->itemid, 1))
                             {
-                                player->AddItem(item->itemid, item->count);
+                                StoreLootAndNotify(player, item->itemid, item->count, creatureGuid);
                             }
                             player->SendNotifyLootItemRemoved(lootSlot);
                             player->SendLootRelease(player->GetLootGUID());
@@ -178,13 +197,13 @@ public:
                     uint8 lootSlot = 0;
                     uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
 
+                    ObjectGuid objGuid = myObj->GetGUID();
                     for (uint32 i = 0; i < maxSlot; ++i)
                     {
                         if (LootItem* item = loot->LootItemInSlot(i, player))
                         {
-                            ItemTemplate const* itemTemplate = sObjectMgr->GetItemTemplate(item->itemid);
                             uint32 itemcount = item->count;
-                            if (player->AddItem(item->itemid, itemcount))
+                            if (StoreLootAndNotify(player, item->itemid, itemcount, objGuid))
                             {
                                 player->SendNotifyLootItemRemoved(lootSlot);
                                 player->SendLootRelease(player->GetLootGUID());

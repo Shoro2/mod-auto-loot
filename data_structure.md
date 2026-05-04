@@ -1,61 +1,61 @@
-# Datei- und Verzeichnisstruktur — mod-auto-loot
+# File and directory structure — mod-auto-loot
 
-> Statisches Inventar des Repos. Bei Hinzufügen/Löschen von Files hier mitpflegen.
+> Static inventory of the repo. Maintain this when adding/removing files.
 
 ## Tree
 
 ```
 mod-auto-loot/
-├── .editorconfig                      # AzerothCore-Standard: 4 Spaces, LF, UTF-8
-├── .gitattributes                     # Line-Endings, Diff-Treatment
-├── .gitignore                         # Build-Artefakte
+├── .editorconfig                      # AzerothCore standard: 4 spaces, LF, UTF-8
+├── .gitattributes                     # Line endings, diff treatment
+├── .gitignore                         # Build artifacts
 ├── .github/
-│   └── (PR-Templates / Actions falls vorhanden)
+│   └── (PR templates / actions if present)
 ├── conf/
-│   └── mod_auto_loot.conf.dist        # Modul-Konfiguration (Template)
+│   └── mod_auto_loot.conf.dist        # Module configuration (template)
 ├── data/
-│   └── (SQL-Files falls hinzugefügt)
+│   └── (SQL files if added)
 ├── src/
-│   ├── mod_auto_loot.cpp              # Hauptlogik: PlayerScript "AutoLoot_Player"
+│   ├── mod_auto_loot.cpp              # Main logic: PlayerScript "AutoLoot_Player"
 │   └── mod_auto_loot_loader.cpp       # Loader: AddSC_AutoLoot()
-├── include.sh                         # SQL-Pfad-Registrierung (aktuell leer)
-├── pull_request_template.md           # GitHub PR-Template
-├── log.md                             # Commit-Log dieses Repos (modular)
-├── data_structure.md                  # Diese Datei
-├── functions.md                       # Mechanik- und Funktions-Referenz
-└── CLAUDE.md                          # Detaillierte Inhalts-Doku
+├── include.sh                         # SQL path registration (currently empty)
+├── pull_request_template.md           # GitHub PR template
+├── log.md                             # Commit log of this repo (modular)
+├── data_structure.md                  # This file
+├── functions.md                       # Mechanics and function reference
+└── CLAUDE.md                          # Detailed content doc
 ```
 
-## Datei-Zwecke (alphabetisch)
+## File purposes (alphabetical)
 
-| Datei | Zweck |
+| File | Purpose |
 |-------|-------|
-| `conf/mod_auto_loot.conf.dist` | Konfigurationsoptionen (`AOELoot.Enable`, `AOELoot.MailEnable`) |
-| `src/mod_auto_loot.cpp` | Komplette PlayerScript-Implementierung inkl. Tick-Loop für AOE-Loot, Truhen-Looting via Lockpicking, Inventar-/Mail-Fallback |
-| `src/mod_auto_loot_loader.cpp` | `AddSC_AutoLoot()` — Loader-Einsprung, registriert die `AutoLoot_Player`-Klasse |
-| `include.sh` | wird von AzerothCore beim Auto-Update verwendet, um SQL-Pfade einzulesen (aktuell ohne Inhalt — kein DB-Schema nötig) |
-| `pull_request_template.md` | Standard-Template für PRs |
-| `log.md` | Commit-History (siehe Konvention dort) |
-| `functions.md` | Mechanik-Doku: Hooks, Flow, Loot-Iteration, Truhen-Logik |
-| `CLAUDE.md` | Inhaltsorientierte Gesamt-Doku (was tut das Modul, IDs, DB-Bezüge) |
+| `conf/mod_auto_loot.conf.dist` | Configuration options (`AOELoot.Enable`, `AOELoot.MailEnable`) |
+| `src/mod_auto_loot.cpp` | Complete PlayerScript implementation including tick loop for AOE loot, chest looting via Lockpicking, inventory/mail fallback |
+| `src/mod_auto_loot_loader.cpp` | `AddSC_AutoLoot()` — loader entry point, registers the `AutoLoot_Player` class |
+| `include.sh` | Used by AzerothCore during auto-update to read SQL paths (currently empty — no DB schema needed) |
+| `pull_request_template.md` | Standard template for PRs |
+| `log.md` | Commit history (see convention there) |
+| `functions.md` | Mechanics doc: hooks, flow, loot iteration, chest logic |
+| `CLAUDE.md` | Content-oriented overview doc (what the module does, IDs, DB references) |
 
-## Größenhinweise (Stand: 2026-05-01)
+## Size notes (as of 2026-05-01)
 
-- `src/mod_auto_loot.cpp` ~8.5 KB — komplett am Stück lesbar
+- `src/mod_auto_loot.cpp` ~8.5 KB — readable in one piece
 - `src/mod_auto_loot_loader.cpp` ~850 B
 - `conf/mod_auto_loot.conf.dist` ~1.2 KB
-- `include.sh` 0 B (leer)
+- `include.sh` 0 B (empty)
 
-Alle Dateien sind klein genug für einen einzelnen `Read`-Aufruf.
+All files are small enough for a single `Read` call.
 
-## Externe Abhängigkeiten
+## External dependencies
 
-- **azerothcore-wotlk** (Core): nutzt `PlayerScript`, `Loot`, `Item`, `Creature`, `GameObject`, `ChatHandler`, `Config`, `Log`, `ScriptedGossip`.
-- **mod-paragon-itemgen** (optional): konsumiert das durch dieses Modul gefeuerte `OnPlayerLootItem`-Event, um Bonus-Stats zu vergeben.
-- **mod-loot-filter** (optional): hängt sich ebenfalls in `OnPlayerLootItem` ein, um automatisches Sell/DE/Delete anzuwenden.
+- **azerothcore-wotlk** (core): uses `PlayerScript`, `Loot`, `Item`, `Creature`, `GameObject`, `ChatHandler`, `Config`, `Log`, `ScriptedGossip`.
+- **mod-paragon-itemgen** (optional): consumes the `OnPlayerLootItem` event fired by this module to assign bonus stats.
+- **mod-loot-filter** (optional): also hooks into `OnPlayerLootItem` to apply automatic Sell/DE/Delete.
 
-## Wo ist was nicht?
+## What is not where?
 
-- **Keine SQL-Files** — Modul ist rein C++ ohne DB-Bedarf.
-- **Keine Lua/AIO-Files** — keine Client-UI.
-- **Kein eigener Build-Slot** — wird via AzerothCore Auto-Detection in `modules/` eingebunden.
+- **No SQL files** — the module is pure C++ and needs no DB.
+- **No Lua/AIO files** — no client UI.
+- **No own build slot** — included in `modules/` via AzerothCore auto-detection.

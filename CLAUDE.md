@@ -1,89 +1,89 @@
 # CLAUDE.md — mod-auto-loot
 
-> **Inhaltsorientiert**. Was ist dieses Modul, was tut es, welche IDs/DB-Bezüge gibt es?
-> Mechanik-Details (Hooks, Funktions-Signaturen, Flow): siehe [`functions.md`](./functions.md).
-> Datei-Layout: siehe [`data_structure.md`](./data_structure.md).
-> Commit-Historie: siehe [`log.md`](./log.md).
-> Projekt-Gesamtkontext: siehe [`share-public/AI_GUIDE.md`](https://github.com/Shoro2/share-public/blob/main/AI_GUIDE.md).
+> **Content-oriented**. What is this module, what does it do, which IDs/DB references exist?
+> Mechanics details (hooks, function signatures, flow): see [`functions.md`](./functions.md).
+> File layout: see [`data_structure.md`](./data_structure.md).
+> Commit history: see [`log.md`](./log.md).
+> Project-wide context: see [`share-public/AI_GUIDE.md`](https://github.com/Shoro2/share-public/blob/main/AI_GUIDE.md).
 
-## Was ist mod-auto-loot?
+## What is mod-auto-loot?
 
-Ein AzerothCore-Modul, das **AOE-Looting** im 10-Yard-Radius automatisiert. Tote Creatures und (mit Lockpicking-Skill) Truhen im Umkreis werden beim regulären `OnPlayerUpdate`-Tick automatisch geleert, ohne dass der Spieler jede Leiche einzeln anklicken muss. Volle Inventare können optional per Mail nachgesendet werden.
+An AzerothCore module that automates **AOE looting** in a 10-yard radius. Dead creatures and (with Lockpicking skill) chests in the area are emptied automatically on the regular `OnPlayerUpdate` tick, without the player having to click each corpse individually. Full inventories can optionally be sent on by mail.
 
-Das Modul ist klein (eine `.cpp`-Datei mit ~250 Zeilen Hauptlogik) und hat **keinerlei DB-Schema**.
+The module is small (one `.cpp` file with ~250 lines of main logic) and has **no DB schema at all**.
 
-## Rolle im Gesamtprojekt
+## Role in the overall project
 
 ```
 Creature Death / Chest Open
         │
         ▼
-mod-auto-loot   (greift Loot proaktiv im 10-yd-Radius auf)
+mod-auto-loot   (proactively grabs loot in 10-yd radius)
         │
         ▼ sScriptMgr->OnPlayerLootItem()
         │
-        ├─→ mod-paragon-itemgen  (vergibt Bonus-Stats / Cursed-Marker)
-        └─→ mod-loot-filter      (entscheidet: Keep / Sell / DE / Delete)
+        ├─→ mod-paragon-itemgen  (assigns bonus stats / cursed marker)
+        └─→ mod-loot-filter      (decides: Keep / Sell / DE / Delete)
 ```
 
-Das Modul ist **Voraussetzung** für mod-paragon-itemgen + mod-loot-filter, sobald der Spieler "automatisch lootet" — ohne den `OnPlayerLootItem`-Hook würden auto-gelootete Items keine Stats bekommen und nicht gefiltert werden.
+The module is a **prerequisite** for mod-paragon-itemgen + mod-loot-filter as soon as the player "auto-loots" — without the `OnPlayerLootItem` hook, auto-looted items would not get stats and would not be filtered.
 
-## Was triggert Auto-Loot?
+## What triggers auto-loot?
 
-| Bedingung | erforderlich |
+| Condition | Required |
 |-----------|-------------|
-| `AOELoot.Enable` Config | `true` |
-| Spieler nicht in Gruppe | ja |
-| ≥4 freie Inventarslots | ja |
-| Tote Creatures im 10-yd-Radius | für Creature-Loot |
-| Truhe (`GAMEOBJECT_TYPE_CHEST`) im 10-yd-Radius **und** Spieler hat Skill 186 (Lockpicking) | für Chest-Loot |
+| `AOELoot.Enable` config | `true` |
+| Player not in a group | yes |
+| ≥4 free inventory slots | yes |
+| Dead creatures in the 10-yd radius | for creature loot |
+| Chest (`GAMEOBJECT_TYPE_CHEST`) in the 10-yd radius **and** player has skill 186 (Lockpicking) | for chest loot |
 
-## Item-Behandlung
+## Item handling
 
-| Item-Typ (`MaxCount`) | Verhalten |
+| Item type (`MaxCount`) | Behavior |
 |-----------------------|-----------|
-| stackable (`MaxCount != 1`) | wird gelootet; bei vollem Inventar via Mail nachgesendet (`AOELoot.MailEnable`) |
-| unique (`MaxCount == 1`) | nur gelootet, wenn Spieler das Item **noch nicht besitzt** |
+| stackable (`MaxCount != 1`) | looted; on full inventory, sent on by mail (`AOELoot.MailEnable`) |
+| unique (`MaxCount == 1`) | only looted if the player **does not yet own** the item |
 
-Gold wird über alle Creatures akkumuliert und in einem einzigen `SMSG_LOOT_MONEY_NOTIFY`-Packet an den Client geschickt. `LOOT_MONEY`-Achievement wird mitgezählt.
+Gold is accumulated across all creatures and sent to the client in a single `SMSG_LOOT_MONEY_NOTIFY` packet. The `LOOT_MONEY` achievement is counted along with it.
 
-## IDs und konstante Werte
+## IDs and constant values
 
-| Ressource | ID | Quelle |
+| Resource | ID | Source |
 |-----------|----|--------|
 | acore_string "Auto-Loot enabled" | `50000` | `AOE_ACORE_STRING_MESSAGE` |
 | acore_string "Item in mail" | `50001` | `AOE_ITEM_IN_THE_MAIL` |
-| Spell "Pick Lock" | `2575` | Standard-WoW-Spell, von uns nur referenziert |
-| Skill "Lockpicking" | `186` | Standard-WoW-Skill |
-| Loot-Range | `10.0f` Yards | hartkodiert |
-| Min freie Slots | `4` | hartkodiert |
+| Spell "Pick Lock" | `2575` | Standard WoW spell, only referenced by us |
+| Skill "Lockpicking" | `186` | Standard WoW skill |
+| Loot range | `10.0f` yards | hard-coded |
+| Min free slots | `4` | hard-coded |
 
-## DB-Bezüge
+## DB references
 
-- **Keine eigenen DB-Tabellen.**
-- Konsumiert nur:
-  - `acore_world.acore_string` (für die zwei Sysmessages 50000/50001)
-  - `acore_world.item_template` (über `sObjectMgr->GetItemTemplate(itemid)` zur `MaxCount`-Prüfung)
+- **No own DB tables.**
+- Only consumes:
+  - `acore_world.acore_string` (for the two sysmessages 50000/50001)
+  - `acore_world.item_template` (via `sObjectMgr->GetItemTemplate(itemid)` for the `MaxCount` check)
 
-## Konfiguration
+## Configuration
 
-`conf/mod_auto_loot.conf.dist` (zwei Optionen):
+`conf/mod_auto_loot.conf.dist` (two options):
 
 ```ini
-AOELoot.Enable = 1     # Master-Toggle
-AOELoot.MailEnable = 1 # bei vollem Inventar nachsenden
+AOELoot.Enable = 1     # master toggle
+AOELoot.MailEnable = 1 # mail items on full inventory
 ```
 
-## Was das Modul NICHT tut
+## What this module does NOT do
 
-- Kein Group-Loot, keine Master-Loot-Logik, keine Loot-Rolls.
-- Kein Mining-/Herbalism-Auto-Loot (`OnAfterGObjLoot`-Hook entfernt).
-- Kein Skinning. Skinnable-Flag wird sogar entfernt, sobald die Leiche leer ist.
-- Kein eigener Loot-Filter / kein Anti-Spam — die Filterung übernimmt mod-loot-filter im nachgelagerten Hook.
+- No group loot, no master loot logic, no loot rolls.
+- No mining/herbalism auto-loot (`OnAfterGObjLoot` hook removed).
+- No skinning. The Skinnable flag is even removed once the corpse is empty.
+- No own loot filter / no anti-spam — filtering is handled by mod-loot-filter on the downstream hook.
 
-## Für KI-Sessions wichtig
+## Important for AI sessions
 
-- Keine SQL-Migrationen → Änderungen sind reine C++-Refactorings.
-- Modul-Loader-Funktion: `AddSC_AutoLoot()` (entgegen Konvention `AddSC_*` statt `Addmod_auto_lootScripts()` — Funktioniert, weil das AzerothCore-Loader-System beide Patterns akzeptiert).
-- Hook-Registrierung muss korrekte `PLAYERHOOK_*`-Enum-Werte verwenden (siehe `log.md`-Eintrag 2026-03-06).
-- Der `StoreLootAndNotify`-Helper darf nicht durch `player->AddItem()` ersetzt werden — der `OnPlayerLootItem`-Hook ist die Schnittstelle zu allen anderen Modulen.
+- No SQL migrations → changes are pure C++ refactorings.
+- Module loader function: `AddSC_AutoLoot()` (against the convention `AddSC_*` instead of `Addmod_auto_lootScripts()` — works because the AzerothCore loader system accepts both patterns).
+- Hook registration must use the correct `PLAYERHOOK_*` enum values (see `log.md` entry 2026-03-06).
+- The `StoreLootAndNotify` helper must not be replaced with `player->AddItem()` — the `OnPlayerLootItem` hook is the interface to all other modules.

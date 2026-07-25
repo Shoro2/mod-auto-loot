@@ -34,3 +34,23 @@ AOELoot.Enable = 1
 #
 
 AOELoot.MailEnable = 1
+
+#
+#   AOELoot.ScanIntervalMS
+#       Description: How often the nearby-corpse and nearby-chest DISCOVERY scans
+#                    run, per player, in milliseconds. Draining is unchanged: once
+#                    the interval elapses the whole body runs exactly as before,
+#                    in the same order, with the same authoritative effects.
+#
+#                    The update hook is dispatched unthrottled from Player::Update,
+#                    so with the default MapUpdateInterval of 10 ms it previously
+#                    ran ~100x per second per player and performed TWO grid searches
+#                    plus a full bag-slot walk on every pass. At 250 ms that becomes
+#                    ~4x per second. The resulting pickup delay sits far inside the
+#                    60 s corpse-decay window and is not noticeable in play.
+#
+#       Default:    250
+#       Special:    0 - legacy behaviour, scan on every tick (bit-for-bit)
+#
+
+AOELoot.ScanIntervalMS = 250

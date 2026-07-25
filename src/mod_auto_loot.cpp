@@ -68,6 +68,43 @@ enum AutoLootString
     AOE_ITEM_IN_THE_MAIL = 50001
 };
 
+// Skinning/mining skill gate for the chest branch (unchanged behaviour, only
+// evaluated earlier now).
+static constexpr uint32 AOE_LOOT_CHEST_SKILL = 186;
+
+namespace
+{
+    // Cached at config load instead of read per tick. sConfigMgr->GetOption is not
+    // a cheap lookup: it builds "AC_" + transformed key (string allocations) and
+    // calls std::getenv() on every call, because a negative env-var result is
+    // never cached (src/common/Configuration/Config.cpp). This hook runs ~100x/s
+    // per player.
+    bool   conf_Enable         = true;
+    bool   conf_MailEnable     = true;
+    uint32 conf_ScanIntervalMS = 250;
+}
+
+// Per-player throttle state. Kept on the Player itself rather than in a module
+// map so there is no shared container to lock if MapUpdate.Threads is ever raised
+// above 1.
+struct AutoLootScanTimer : public DataMap::Base
+{
+    uint32 elapsedMs = 0;
+};
+
+class AutoLoot_World : public WorldScript
+{
+public:
+    AutoLoot_World() : WorldScript("AutoLoot_World") { }
+
+    void OnAfterConfigLoad(bool /*reload*/) override
+    {
+        conf_Enable         = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
+        conf_MailEnable     = sConfigMgr->GetOption<bool>("AOELoot.MailEnable", true);
+        conf_ScanIntervalMS = sConfigMgr->GetOption<uint32>("AOELoot.ScanIntervalMS", 250);
+    }
+};
+
 // Store item and fire OnPlayerLootItem so other modules (e.g. paragon-itemgen)
 // can process the item.  Returns the created Item* or nullptr on failure.
 static Item* StoreLootAndNotify(Player* player, uint32 itemId, uint32 count, ObjectGuid lootSource)
@@ -92,7 +129,7 @@ public:
 
     void OnPlayerLogin(Player* player) override
     {
-        if (sConfigMgr->GetOption<bool>("AOELoot.Enable", true))
+        if (conf_Enable)
         {
             ChatHandler(player->GetSession()).PSendSysMessage(AOE_ACORE_STRING_MESSAGE);
         }
@@ -103,11 +140,36 @@ public:
         return true;
     }
 
-    void OnPlayerUpdate(Player* player, uint32 /*p_time*/) override
+    void OnPlayerUpdate(Player* player, uint32 p_time) override
     {
-        bool _enable = sConfigMgr->GetOption<bool>("AOELoot.Enable", true);
+        if (!conf_Enable)
+            return;
 
-        if (player->GetGroup() || !_enable || player->GetFreeInventorySpace() < 4)
+        // Throttle DISCOVERY only. Once the interval elapses the body below runs
+        // exactly as it always did: same order, same authoritative effects, one
+        // call each for every inventory grant, mail operation, item destruction,
+        // storage mutation, Paragon write, hook, packet and corpse mutation.
+        //
+        // This hook is dispatched unthrottled from Player::Update, so with
+        // MapUpdateInterval=10 it ran ~100x/s per player -- and each pass did TWO
+        // grid searches (dead creatures below, and the chest search further down)
+        // plus a full bag-slot walk in GetFreeInventorySpace(). At a 250 ms
+        // cadence that is ~4/s instead of ~100/s per player, at the cost of an
+        // imperceptible pickup delay well inside the 60 s corpse window.
+        //
+        // AOELoot.ScanIntervalMS = 0 restores the legacy every-tick behaviour
+        // bit-for-bit.
+        if (conf_ScanIntervalMS)
+        {
+            auto* scan = player->CustomData.GetDefault<AutoLootScanTimer>("mod-auto-loot");
+            scan->elapsedMs += p_time;
+            if (scan->elapsedMs < conf_ScanIntervalMS)
+                return;
+
+            scan->elapsedMs = 0;
+        }
+
+        if (player->GetGroup() || player->GetFreeInventorySpace() < 4)
             return;
 
         float range = 10.0f;
@@ -139,7 +201,7 @@ public:
                                 player->SendNotifyLootItemRemoved(lootSlot);
                                 player->SendLootRelease(player->GetLootGUID());
                             }
-                            else if (sConfigMgr->GetOption<bool>("AOELoot.MailEnable", true))
+                            else if (conf_MailEnable)
                             {
                                 player->SendItemRetrievalMail(item->itemid, item->count);
                                 ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);
@@ -186,37 +248,38 @@ public:
             player->GetSession()->SendPacket(&data);
         }
 
-        GameObject* myObj = player->FindNearestGameObjectOfType(GAMEOBJECT_TYPE_CHEST, 10.f);
+        // The chest branch: gate on the skill BEFORE searching. The GameObject grid
+        // search used to run for every player on every tick even though only a
+        // character with this skill can act on the result, so non-gatherers paid a
+        // full grid search for nothing. Observable behaviour is unchanged -- the
+        // search result was only ever used inside this same skill check.
+        if (!player->HasSkill(AOE_LOOT_CHEST_SKILL))
+            return;
 
-        if (myObj) {
-            if (player->HasSkill(186)) {
+        if (GameObject* myObj = player->FindNearestGameObjectOfType(GAMEOBJECT_TYPE_CHEST, 10.f))
+        {
+            if (myObj->getLootState() == GO_READY && !myObj->IsInvisibleDueToDespawn())
+            {
+                player->CastSpell(myObj, 2575, true);
+                Loot* loot = &myObj->loot;
+                uint8 lootSlot = 0;
+                uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
 
-                if (myObj->getLootState() == GO_READY && !myObj->IsInvisibleDueToDespawn()) {
-                    player->CastSpell(myObj, 2575, true);
-                    Loot* loot = &myObj->loot;
-                    uint8 lootSlot = 0;
-                    uint32 maxSlot = loot->GetMaxSlotInLootFor(player);
-
-                    ObjectGuid objGuid = myObj->GetGUID();
-                    for (uint32 i = 0; i < maxSlot; ++i)
+                ObjectGuid objGuid = myObj->GetGUID();
+                for (uint32 i = 0; i < maxSlot; ++i)
+                {
+                    if (LootItem* item = loot->LootItemInSlot(i, player))
                     {
-                        if (LootItem* item = loot->LootItemInSlot(i, player))
+                        uint32 itemcount = item->count;
+                        if (StoreLootAndNotify(player, item->itemid, itemcount, objGuid))
                         {
-                            uint32 itemcount = item->count;
-                            if (StoreLootAndNotify(player, item->itemid, itemcount, objGuid))
-                            {
-                                player->SendNotifyLootItemRemoved(lootSlot);
-                                player->SendLootRelease(player->GetLootGUID());
-                                myObj->DespawnOrUnsummon();
-                            }
+                            player->SendNotifyLootItemRemoved(lootSlot);
+                            player->SendLootRelease(player->GetLootGUID());
+                            myObj->DespawnOrUnsummon();
                         }
                     }
-
-
                 }
             }
-
-
         }
 
 
@@ -226,5 +289,6 @@ public:
 
 void AddSC_AutoLoot()
 {
+    new AutoLoot_World();
     new AutoLoot_Player();
 }

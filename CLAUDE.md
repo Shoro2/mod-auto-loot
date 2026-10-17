@@ -1,9 +1,15 @@
 # CLAUDE.md — mod-auto-loot
 
+> **Internal docs live in the vault, not here** (rule since 2026-10-18: this public repo keeps only
+> README.md with the general info and installation, this CLAUDE.md, the license and the code).
+> Index, data structure, functions, log and todo: share-public `docs/World of Warcraft/module-repos/mod-auto-loot/`
+> (local checkout `C:\Users\Anwender\Documents\GitHub\share-public`). Update them there,
+> in a vault worktree, in the same session as the code change.
+
 > **Content-oriented**. What is this module, what does it do, which IDs/DB references exist?
-> Mechanics details (hooks, function signatures, flow): see [`functions.md`](./functions.md).
-> File layout: see [`data_structure.md`](./data_structure.md).
-> Commit history: see [`log.md`](./log.md).
+> Mechanics details (hooks, function signatures, flow): see [`functions.md`](https://github.com/Shoro2/share-public/blob/main/docs/World%20of%20Warcraft/module-repos/mod-auto-loot/functions.md).
+> File layout: see [`data_structure.md`](https://github.com/Shoro2/share-public/blob/main/docs/World%20of%20Warcraft/module-repos/mod-auto-loot/data_structure.md).
+> Commit history: see [`log.md`](https://github.com/Shoro2/share-public/blob/main/docs/World%20of%20Warcraft/module-repos/mod-auto-loot/log.md).
 > Project-wide context: see [`share-public/AI_GUIDE.md`](https://github.com/Shoro2/share-public/blob/main/AI_GUIDE.md).
 
 ## What is mod-auto-loot?

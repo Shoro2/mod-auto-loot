@@ -201,7 +201,10 @@ public:
                                 player->SendNotifyLootItemRemoved(lootSlot);
                                 player->SendLootRelease(player->GetLootGUID());
                             }
-                            else if (conf_MailEnable)
+                            // A quest drop that does not fit is surplus (the quest holds what it needs; the
+                            // item's max count is the quest's count): mailing it only fills the mailbox
+                            // (FL 2026-10-17: several corpses looted in one scan mailed the extra claws).
+                            else if (conf_MailEnable && !item->needs_quest && itemTemplate->Class != ITEM_CLASS_QUEST)
                             {
                                 player->SendItemRetrievalMail(item->itemid, item->count);
                                 ChatHandler(player->GetSession()).SendSysMessage(AOE_ITEM_IN_THE_MAIL);

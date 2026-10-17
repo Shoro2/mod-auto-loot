@@ -240,6 +240,12 @@ public:
                 {
                     _creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
                     _creature->AllLootRemovedFromCorpse();
+                    // Loot::empty() looks at the shared items and gold only, not at the per-player quest
+                    // items: a corpse whose loot is only a quest item landed here with that item still in
+                    // it, and every scan (250 ms) handed it out again until the corpse decayed (FL
+                    // 2026-10-17: one Ancient Spirit Bear gave nine claws). Clear it like the branch above.
+                    if (!_creature->IsAlive())
+                        loot->clear();
                 }
             }
 

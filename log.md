@@ -5,6 +5,7 @@
 
 ## 2026
 
+- 2026-10-17 — fix: a corpse whose loot is only a quest item is cleared after looting (Loot::empty ignores quest items; every scan handed the item out again - one bear gave nine claws)
 - 2026-10-17 — fix: surplus quest drops are no longer mailed (several corpses looted in one scan mailed the claws past the quest count; FL report in the "Neue FL-Quests" thread)
 - 2026-03-21 — refactor: Extract loot storage into helper function ([1f9b162](https://github.com/Shoro2/mod-auto-loot/commit/1f9b162152b6221b3a3991877ceae0b1351a4cce)) — auto-looted items now trigger `OnPlayerLootItem` so mod-paragon-itemgen can apply bonus stats.
 - 2026-03-06 — refactor: Update PlayerScript hooks and API calls ([9aeb55d](https://github.com/Shoro2/mod-auto-loot/commit/9aeb55d17ff44f91c5781d234be9d9fad9bdf540)) — `OnLogin` → `OnPlayerLogin`, `RemoveFlag(UNIT_DYNAMIC_FLAGS,...)` → `RemoveDynamicFlag(...)`, `OnAfterGObjLoot` removed (hook no longer exists).

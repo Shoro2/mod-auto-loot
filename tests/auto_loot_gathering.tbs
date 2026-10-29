@@ -1,0 +1,38 @@
+# mod-auto-loot: running past a node gathers it - a Copper Vein with Mining
+# (as before) and, since 2026-10-29, a Silverleaf with Herbalism (player
+# report: "mines get mined automatically ... but plants don't").
+# The director spawns each node at its own feet; the bot stands within 10 yd.
+name    Auto loot - mining veins and herb nodes are gathered in passing
+timeout 60s
+
+bot g warrior slot=6
+group none
+
+place 13 -279 150 -423.2 0
+require g alive
+do gm target g
+as gm .learn 2575
+as gm .setskill 186 450 450
+as gm .additem 2901
+as gm .learn 2366
+as gm .setskill 182 450 450
+
+log Herbalism - a Silverleaf (1617) beside the bot is picked: Silverleaf (765) in the bags
+as gm .gobject add temp 1617
+waitfor g item 765 >= 1 timeout 5s
+
+log Mining - a Copper Vein (1731) beside the bot is mined (Mining Pick 2901 in the bags): Copper Ore (2770)
+as gm .gobject add temp 1731
+waitfor g item 2770 >= 1 timeout 5s
+
+cleanup
+do g destroy 765
+do g destroy 2770
+do g destroy 2835
+do g destroy 774
+do g destroy 818
+do g destroy 1210
+do g destroy 2901
+do gm target g
+as gm .unlearn 2575
+as gm .unlearn 2366

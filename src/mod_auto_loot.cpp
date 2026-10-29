@@ -61,6 +61,11 @@
 #include "Player.h"
 #include "ScriptedGossip.h"
 #include "Item.h"
+#include "DBCStores.h"
+#include "GameObject.h"
+#include "CellImpl.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 
 enum AutoLootString
 {
@@ -68,9 +73,56 @@ enum AutoLootString
     AOE_ITEM_IN_THE_MAIL = 50001
 };
 
-// Skinning/mining skill gate for the chest branch (unchanged behaviour, only
-// evaluated earlier now).
-static constexpr uint32 AOE_LOOT_CHEST_SKILL = 186;
+// The gathering branch: a mining vein or an herb node within reach is opened
+// with the gathering spell of its lock. It used to know Mining only, so herbs
+// were never picked (player report 2026-10-29).
+static constexpr uint32 AOE_LOOT_SPELL_MINING = 2575;
+static constexpr uint32 AOE_LOOT_SPELL_HERB_GATHERING = 2366;
+
+// The gathering spell the player can open this node with, 0 for none (the
+// lock's skill case decides; the node's required skill rank is checked by the
+// spell itself)
+static uint32 GatherSpellFor(Player* player, GameObject* go)
+{
+    LockEntry const* lock = sLockStore.LookupEntry(go->GetGOInfo()->GetLockId());
+    if (!lock)
+        return 0;
+
+    for (uint8 i = 0; i < MAX_LOCK_CASE; ++i)
+    {
+        if (lock->Type[i] != LOCK_KEY_SKILL)
+            continue;
+        if (lock->Index[i] == LOCKTYPE_MINING && player->HasSkill(SKILL_MINING))
+            return AOE_LOOT_SPELL_MINING;
+        if (lock->Index[i] == LOCKTYPE_HERBALISM && player->HasSkill(SKILL_HERBALISM))
+            return AOE_LOOT_SPELL_HERB_GATHERING;
+    }
+    return 0;
+}
+
+// The nearest node within range that is ready and that this player can
+// gather. Taking the nearest chest of any kind let a picked herb (or a chest
+// the player cannot open) beside a vein hide the vein.
+class NearestGatherableNodeCheck
+{
+public:
+    NearestGatherableNodeCheck(Player* player, float range) : _player(player), _range(range) { }
+
+    bool operator()(GameObject* go)
+    {
+        if (go->GetGoType() != GAMEOBJECT_TYPE_CHEST || go->getLootState() != GO_READY
+            || go->IsInvisibleDueToDespawn() || !_player->IsWithinDistInMap(go, _range)
+            || !GatherSpellFor(_player, go))
+            return false;
+
+        _range = _player->GetDistance(go);
+        return true;
+    }
+
+private:
+    Player* _player;
+    float _range;
+};
 
 namespace
 {
@@ -262,14 +314,18 @@ public:
         // character with this skill can act on the result, so non-gatherers paid a
         // full grid search for nothing. Observable behaviour is unchanged -- the
         // search result was only ever used inside this same skill check.
-        if (!player->HasSkill(AOE_LOOT_CHEST_SKILL))
+        if (!player->HasSkill(SKILL_MINING) && !player->HasSkill(SKILL_HERBALISM))
             return;
 
-        if (GameObject* myObj = player->FindNearestGameObjectOfType(GAMEOBJECT_TYPE_CHEST, 10.f))
+        GameObject* myObj = nullptr;
+        NearestGatherableNodeCheck check(player, 10.f);
+        Acore::GameObjectLastSearcher<NearestGatherableNodeCheck> searcher(player, myObj, check);
+        Cell::VisitObjects(player, searcher, 10.f);
+        if (myObj)
         {
-            if (myObj->getLootState() == GO_READY && !myObj->IsInvisibleDueToDespawn())
+            uint32 const gatherSpell = GatherSpellFor(player, myObj);
             {
-                player->CastSpell(myObj, 2575, true);
+                player->CastSpell(myObj, gatherSpell, true);
                 Loot* loot = &myObj->loot;
                 uint8 lootSlot = 0;
                 uint32 maxSlot = loot->GetMaxSlotInLootFor(player);

@@ -1,0 +1,31 @@
+# mod-auto-loot: a skinner skins his own kills in passing (operator 2026-10-29: skinning "automatisch").
+# Before, the creature branch stripped the skinnable flag of every looted corpse, so skinners got nothing.
+# A solo bot with Skinning 450 and a Skinning Knife kills a Loch Frenzy (1193, skinning loot: Shiny Fish
+# Scales 17057 at 100 %) at a natural spawn in Loch Modan; the scales end up in its bags.
+name    Auto loot - a skinner's own kill is skinned in passing
+timeout 60s
+
+bot k warrior slot=6
+group none
+
+place 0 -4806.0 -3347.0 287.1 0
+require k alive
+do gm target k
+as gm .learn 8613
+as gm .setskill 393 450 450
+as gm .additem 7005
+pick f creature:1193 near k alive
+require f exists
+# the director has auto-loot too: out of reach
+do gm goto -4806.0 -3387.0 287.1
+do k approach f
+do k attack f
+waitfor f dead timeout 25s
+waitfor k item 17057 >= 1 timeout 5s
+
+cleanup
+do k stop
+do k destroy 17057
+do k destroy 7005
+do gm target k
+as gm .unlearn 8613

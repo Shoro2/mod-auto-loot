@@ -100,6 +100,54 @@ static uint32 GatherSpellFor(Player* player, GameObject* go)
     return 0;
 }
 
+// The skinning ranks, highest first (each one is a Skinning spell with the
+// skinning effect; the corpse's required skill is checked by the spell)
+static constexpr uint32 AOE_LOOT_SKINNING_SPELLS[] = { 50305, 32678, 10768, 8618, 8617, 8613 };
+
+static Item* StoreLootAndNotify(Player* player, uint32 itemId, uint32 count, ObjectGuid lootSource);
+
+// Skin one of the player's own corpses and put the skinning loot in the bags
+// (the Skinning spell fills the corpse's loot as a manual skin would; what
+// does not fit stays in the corpse for a manual pick-up)
+static void SkinCorpse(Player* player, Creature* creature)
+{
+    uint32 spellId = 0;
+    for (uint32 rank : AOE_LOOT_SKINNING_SPELLS)
+        if (player->HasSpell(rank))
+        {
+            spellId = rank;
+            break;
+        }
+    if (!spellId)
+        return;
+
+    player->CastSpell(creature, spellId, true);
+    if (creature->HasUnitFlag(UNIT_FLAG_SKINNABLE))
+        return; // the spell refused (skill too low, no Skinning Knife)
+
+    Loot* loot = &creature->loot;
+    ObjectGuid const creatureGuid = creature->GetGUID();
+    uint32 const maxSlot = loot->GetMaxSlotInLootFor(player);
+    bool allStored = true;
+    for (uint32 i = 0; i < maxSlot; ++i)
+        if (LootItem* item = loot->LootItemInSlot(i, player))
+        {
+            if (StoreLootAndNotify(player, item->itemid, item->count, creatureGuid))
+                player->SendNotifyLootItemRemoved(uint8(i));
+            else
+                allStored = false;
+        }
+    player->SendLootRelease(player->GetLootGUID());
+
+    // all of it in the bags: the corpse is skinned out, as after a manual skin
+    if (allStored)
+    {
+        loot->clear();
+        creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
+        creature->AllLootRemovedFromCorpse();
+    }
+}
+
 // The nearest node within range that is ready and that this player can
 // gather. Taking the nearest chest of any kind let a picked herb (or a chest
 // the player cannot open) beside a vein hide the vein.
@@ -289,7 +337,8 @@ public:
                         _creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
                         loot->clear();
 
-                        if (_creature->HasUnitFlag(UNIT_FLAG_SKINNABLE))
+                        // a skinner skins it below; for anyone else the corpse is done
+                        if (_creature->HasUnitFlag(UNIT_FLAG_SKINNABLE) && !player->HasSkill(SKILL_SKINNING))
                         {
                             _creature->RemoveUnitFlag(UNIT_FLAG_SKINNABLE);
                         }
@@ -306,6 +355,12 @@ public:
                     if (!_creature->IsAlive())
                         loot->clear();
                 }
+
+                // Skinning in passing, as mining and herbs (operator 2026-10-29: "automatisch"; before, the
+                // branch above stripped the skinnable flag and skinners got no leather at all)
+                if (!_creature->IsAlive() && _creature->HasUnitFlag(UNIT_FLAG_SKINNABLE)
+                    && player->HasSkill(SKILL_SKINNING))
+                    SkinCorpse(player, _creature);
             }
 
             player->ModifyMoney(gold);

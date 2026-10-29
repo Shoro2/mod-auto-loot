@@ -1,0 +1,30 @@
+# mod-auto-loot: a corpse is auto-looted by its loot recipient only (player report
+# 2026-10-29: a player standing beside another player's kills looted them away from him).
+# Two solo bots side by side at a natural spawn of "Squealer" Thornmantle (3229, Squealer's Tusk 4951
+# at 100 %; a temp spawn leaves no corpse); k kills it, o only stands within 10 yd. o gets nothing, k
+# gets the tusk.
+name    Auto loot - only the killer's own corpses are looted
+timeout 60s
+
+bot k warrior slot=6
+bot o warrior slot=7
+group none
+
+place 1 -3104.0 -1205.0 85.6 0
+require k alive
+require o alive
+pick b creature:3229 near k alive
+require b exists
+# the director has auto-loot too: out of reach (40 yd)
+do gm goto -3104.0 -1245.0 85.6
+do k approach b
+do k attack b
+waitfor b dead timeout 20s
+wait 3s
+expect o item 4951 == 0
+expect k item 4951 >= 1
+
+cleanup
+do k stop
+do k destroy 4951
+do o destroy 4951

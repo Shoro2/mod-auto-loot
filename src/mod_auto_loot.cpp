@@ -233,6 +233,13 @@ public:
         if (creaturedie.size()) {
             for (auto const& _creature : creaturedie)
             {
+                // only the player's own kills: a corpse belongs to its loot
+                // recipient (the core's tap), not to whoever runs past it
+                // (player report 2026-10-29: another player's kills were
+                // auto-looted away from him). Grouped players never get here.
+                if (_creature->GetLootRecipient() != player)
+                    continue;
+
                 Loot* loot = &_creature->loot;
                 gold += loot->gold;
                 loot->gold = 0;

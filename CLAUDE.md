@@ -39,6 +39,7 @@ The module is a **prerequisite** for mod-paragon-itemgen + mod-loot-filter as so
 | Condition | Required |
 |-----------|-------------|
 | `AOELoot.Enable` config | `true` |
+| Player's own switch (`.autoloot on\|off`, `/fl` Settings) | not off |
 | Player not in a group | yes |
 | ≥4 free inventory slots | yes |
 | Dead creatures in the 10-yd radius | for creature loot |
@@ -80,16 +81,22 @@ AOELoot.Enable = 1     # master toggle
 AOELoot.MailEnable = 1 # mail items on full inventory
 ```
 
+## Per-character switch (since 2026-10-31)
+
+`.autoloot` shows, `.autoloot on|off` sets it; the `/fl` hub's Settings (fl-lua-scripts `CommandHub/`) sends the
+commands and reads the value back. Stored as a player setting: `acore_characters.character_settings`, source
+`core.fl_auto_loot`, index 0 = `1` off, `0` or no row on (the default). The fork saves `core.` sources even with
+`EnablePlayerSettings = 0` (`PlayerSettings.cpp`). Off stops everything in passing: corpses, skinning, nodes.
+
 ## What this module does NOT do
 
 - No group loot, no master loot logic, no loot rolls.
-- No mining/herbalism auto-loot (`OnAfterGObjLoot` hook removed).
-- No skinning. The Skinnable flag is even removed once the corpse is empty.
+- Mining veins and herb nodes within reach ARE gathered (since 2026-10-29), own kills ARE skinned by a skinner (since 2026-10-29); a non-skinner's emptied corpse loses its Skinnable flag.
 - No own loot filter / no anti-spam — filtering is handled by mod-loot-filter on the downstream hook.
 
 ## Important for AI sessions
 
-- No SQL migrations → changes are pure C++ refactorings.
+- No SQL migrations; the only per-player state is the `core.fl_auto_loot` player setting.
 - Module loader function: `AddSC_AutoLoot()` (against the convention `AddSC_*` instead of `Addmod_auto_lootScripts()` — works because the AzerothCore loader system accepts both patterns).
 - Hook registration must use the correct `PLAYERHOOK_*` enum values (see `log.md` entry 2026-03-06).
 - The `StoreLootAndNotify` helper must not be replaced with `player->AddItem()` — the `OnPlayerLootItem` hook is the interface to all other modules.

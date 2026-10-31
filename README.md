@@ -16,6 +16,7 @@ Every player update tick (throttled to a configurable interval, 250 ms by defaul
 - **Unique items**: items with `MaxCount = 1` are only looted if the player does not already own a copy.
 - **Mail overflow** (optional): when the inventory is full, looted items are sent by mail (`AOELoot.MailEnable`). Quest-only drops that do not fit are not mailed.
 - **Solo only**: skipped while the player is in a group, so group loot rules stay intact.
+- **Per-character switch**: each player turns it off or on for his character with `.autoloot off` / `.autoloot on` (Forgotten Land's `/fl` window sends these). Off means nothing is picked up in passing: no corpse loot, no skinning, no gathering.
 - Auto-looted items go through the normal loot-item hooks, so other loot modules (stat enchanting, loot filters) still see them.
 - No DBC patch and no client addon.
 
@@ -26,6 +27,7 @@ Auto-loot runs on the player's update tick (throttled, see `AOELoot.ScanInterval
 | Condition | Required |
 |-----------|----------|
 | `AOELoot.Enable` is on | yes |
+| The player has not switched it off (`.autoloot off`) | yes |
 | Player is not in a group | yes |
 | At least 4 free inventory slots | yes |
 | Dead, lootable creatures within 10 yards | for creature loot |
@@ -33,7 +35,7 @@ Auto-loot runs on the player's update tick (throttled, see `AOELoot.ScanInterval
 
 ## Requirements
 
-- AzerothCore WotLK. The module only uses standard upstream script hooks (`OnPlayerUpdate`, `OnPlayerCanSendErrorAlreadyLooted`, `OnPlayerLogin`), so the Shoro2 fork is not required.
+- AzerothCore WotLK, **the [Shoro2/azerothcore-wotlk](https://github.com/Shoro2/azerothcore-wotlk) fork**: the per-character switch is kept as a player setting (`character_settings`, source `core.fl_auto_loot`), and the fork saves `core.` settings even with `EnablePlayerSettings = 0` and offers `Player::FindPlayerSettings`. The loot logic itself only uses standard upstream script hooks (`OnPlayerUpdate`, `OnPlayerCanSendErrorAlreadyLooted`, `OnPlayerLogin`).
 - No other module, no client patch.
 
 ## Installation
@@ -57,3 +59,8 @@ Auto-loot runs on the player's update tick (throttled, see `AOELoot.ScanInterval
 - `AOELoot.ScanIntervalMS` - how often the corpse and chest scans run per player, in milliseconds (default `250`; `0` scans on every tick).
 
 The 10-yard radius is fixed in the code.
+
+## Commands
+
+- `.autoloot` - shows whether auto-loot is on for your character.
+- `.autoloot on | off` - turns it on or off for your character (kept across logins; on by default).

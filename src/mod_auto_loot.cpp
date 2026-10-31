@@ -66,6 +66,9 @@
 #include "CellImpl.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
+#include "CommandScript.h"
+
+using namespace Acore::ChatCommands;
 
 enum AutoLootString
 {
@@ -192,6 +195,18 @@ struct AutoLootScanTimer : public DataMap::Base
     uint32 elapsedMs = 0;
 };
 
+// The player's own switch (the /fl hub's Settings, or .autoloot on|off), kept per
+// character in character_settings. A "core." source is saved even with
+// EnablePlayerSettings = 0. Index 0: 0 = on (the default, no row needed), 1 = off.
+static constexpr char const* AUTO_LOOT_SETTING = "core.fl_auto_loot";
+static constexpr uint32 AUTO_LOOT_SETTING_OFF = 1;
+
+static bool IsAutoLootOff(Player const* player)
+{
+    PlayerSettingVector const* values = player->FindPlayerSettings(AUTO_LOOT_SETTING);
+    return values && !values->empty() && (*values)[0].value == AUTO_LOOT_SETTING_OFF;
+}
+
 class AutoLoot_World : public WorldScript
 {
 public:
@@ -229,10 +244,13 @@ public:
 
     void OnPlayerLogin(Player* player) override
     {
-        if (conf_Enable)
-        {
+        if (!conf_Enable)
+            return;
+
+        if (IsAutoLootOff(player))
+            ChatHandler(player->GetSession()).SendSysMessage("Auto-Loot is off. Turn it on with /fl (Settings) or .autoloot on.");
+        else
             ChatHandler(player->GetSession()).PSendSysMessage(AOE_ACORE_STRING_MESSAGE);
-        }
     }
 
     bool OnPlayerCanSendErrorAlreadyLooted(Player* /*player*/) override
@@ -269,7 +287,9 @@ public:
             scan->elapsedMs = 0;
         }
 
-        if (player->GetGroup() || player->GetFreeInventorySpace() < 4)
+        // switched off by the player: nothing is picked up in passing, not
+        // corpses, not skins, not herbs or ore
+        if (IsAutoLootOff(player) || player->GetGroup() || player->GetFreeInventorySpace() < 4)
             return;
 
         float range = 10.0f;
@@ -414,8 +434,76 @@ public:
 
 };
 
+// .autoloot          shows the player's switch
+// .autoloot on|off   sets it (the /fl hub's Settings buttons send these)
+class AutoLoot_Command : public CommandScript
+{
+public:
+    AutoLoot_Command() : CommandScript("AutoLoot_Command") { }
+
+    ChatCommandTable GetCommands() const override
+    {
+        static ChatCommandTable autoLootTable =
+        {
+            { "on",  HandleOn,   SEC_PLAYER, Console::No },
+            { "off", HandleOff,  SEC_PLAYER, Console::No },
+            { "",    HandleShow, SEC_PLAYER, Console::No },
+        };
+
+        static ChatCommandTable commandTable =
+        {
+            { "autoloot", autoLootTable },
+        };
+
+        return commandTable;
+    }
+
+    static void SendState(ChatHandler* handler, Player* player)
+    {
+        if (!conf_Enable)
+            handler->SendSysMessage("Auto-Loot is disabled on this server.");
+        else if (IsAutoLootOff(player))
+            handler->SendSysMessage("Auto-Loot is off: loot, skin and gather by hand.");
+        else
+            handler->SendSysMessage("Auto-Loot is on: your own kills are looted and skinned, herbs and ore within 10 yards are gathered (not in a group).");
+    }
+
+    static bool HandleOn(ChatHandler* handler)
+    {
+        Player* player = handler->GetPlayer();
+        if (!player)
+            return false;
+
+        player->UpdatePlayerSetting(AUTO_LOOT_SETTING, 0, 0);
+        SendState(handler, player);
+        return true;
+    }
+
+    static bool HandleOff(ChatHandler* handler)
+    {
+        Player* player = handler->GetPlayer();
+        if (!player)
+            return false;
+
+        player->UpdatePlayerSetting(AUTO_LOOT_SETTING, 0, AUTO_LOOT_SETTING_OFF);
+        SendState(handler, player);
+        return true;
+    }
+
+    static bool HandleShow(ChatHandler* handler)
+    {
+        Player* player = handler->GetPlayer();
+        if (!player)
+            return false;
+
+        SendState(handler, player);
+        return true;
+    }
+};
+
 void AddSC_AutoLoot()
 {
     new AutoLoot_World();
     new AutoLoot_Player();
+    new AutoLoot_Command();
 }

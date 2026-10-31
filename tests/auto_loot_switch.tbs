@@ -1,0 +1,38 @@
+# mod-auto-loot: the player's own switch (the /fl hub's Settings, Chris 2026-10-31), `.autoloot on|off`,
+# kept per character. Off: the bot's own kill keeps its loot; on again: the same corpse is looted at the
+# next scan; off survives a relog. "Squealer" Thornmantle (3229) drops Squealer's Tusk 4951 at 100 %.
+name    Auto loot - the player's switch: off loots nothing, on loots again, kept over a relog
+timeout 90s
+
+bot k warrior slot=6
+group none
+
+place 1 -3104.0 -1205.0 85.6 0
+require k alive
+do k destroy 4951
+as k .autoloot off
+expect output has "Auto-Loot is off"
+pick b creature:3229 near k alive
+require b exists
+# the director has auto-loot too: out of reach (40 yd)
+do gm goto -3104.0 -1245.0 85.6
+do k approach b
+do k attack b
+waitfor b dead timeout 20s
+wait 3s
+expect k item 4951 == 0
+
+as k .autoloot on
+expect output has "Auto-Loot is on"
+waitfor k item 4951 >= 1 timeout 5s
+
+as k .autoloot off
+do k relog
+waitfor k exists timeout 20s
+as k .autoloot
+expect output has "Auto-Loot is off"
+
+cleanup
+as k .autoloot on
+do k stop
+do k destroy 4951
